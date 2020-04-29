@@ -3,8 +3,10 @@ package com.mapbox.mapboxsdk.location;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
+import android.graphics.RectF;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import androidx.annotation.ColorInt;
 import androidx.annotation.Dimension;
 import androidx.annotation.DrawableRes;
@@ -109,6 +111,8 @@ public class LocationComponentOptions implements Parcelable {
   private boolean trackingGesturesManagement;
   private float trackingInitialMoveThreshold;
   private float trackingMultiFingerMoveThreshold;
+  @Nullable
+  private RectF trackingMultiFingerProtectedMoveArea;
   private String layerAbove;
   private String layerBelow;
   private float trackingAnimationDurationMultiplier;
@@ -144,6 +148,7 @@ public class LocationComponentOptions implements Parcelable {
     boolean trackingGesturesManagement,
     float trackingInitialMoveThreshold,
     float trackingMultiFingerMoveThreshold,
+    RectF trackingMultiFingerProtectedMoveArea,
     String layerAbove,
     String layerBelow,
     float trackingAnimationDurationMultiplier,
@@ -180,6 +185,7 @@ public class LocationComponentOptions implements Parcelable {
     this.trackingGesturesManagement = trackingGesturesManagement;
     this.trackingInitialMoveThreshold = trackingInitialMoveThreshold;
     this.trackingMultiFingerMoveThreshold = trackingMultiFingerMoveThreshold;
+    this.trackingMultiFingerProtectedMoveArea = trackingMultiFingerProtectedMoveArea;
     this.layerAbove = layerAbove;
     this.layerBelow = layerBelow;
     this.trackingAnimationDurationMultiplier = trackingAnimationDurationMultiplier;
@@ -665,6 +671,7 @@ public class LocationComponentOptions implements Parcelable {
    * @return true if gestures are adjusted when in one of the camera tracking modes, false otherwise
    * @see Builder#trackingInitialMoveThreshold(float)
    * @see Builder#trackingMultiFingerMoveThreshold(float)
+   * @see Builder#trackingMultiFingerProtectedMoveArea(RectF)
    */
   public boolean trackingGesturesManagement() {
     return trackingGesturesManagement;
@@ -686,6 +693,20 @@ public class LocationComponentOptions implements Parcelable {
    */
   public float trackingMultiFingerMoveThreshold() {
     return trackingMultiFingerMoveThreshold;
+  }
+
+  /**
+   * Protected multi pointer gesture area. When the camera is in a tracking mode, any multi finger gesture with focal
+   * point inside the provided screen coordinate rectangle is not going to break the tracking.
+   * <p>
+   * Best paired with the {@link LocationComponentOptions.Builder#trackingMultiFingerMoveThreshold(float)}
+   * set to 0 or a relatively small value to not interfere with gestures outside of the defined rectangle.
+   *
+   * @return the protected multi finger area while camera is tracking
+   */
+  @Nullable
+  public RectF trackingMultiFingerProtectedMoveArea() {
+    return trackingMultiFingerProtectedMoveArea;
   }
 
   /**
@@ -772,6 +793,7 @@ public class LocationComponentOptions implements Parcelable {
       + "trackingGesturesManagement=" + trackingGesturesManagement + ", "
       + "trackingInitialMoveThreshold=" + trackingInitialMoveThreshold + ", "
       + "trackingMultiFingerMoveThreshold=" + trackingMultiFingerMoveThreshold + ", "
+      + "trackingMultiFingerProtectedMoveArea=" + trackingMultiFingerProtectedMoveArea + ", "
       + "layerAbove=" + layerAbove
       + "layerBelow=" + layerBelow
       + "trackingAnimationDurationMultiplier=" + trackingAnimationDurationMultiplier
@@ -838,6 +860,11 @@ public class LocationComponentOptions implements Parcelable {
       return false;
     }
     if (Float.compare(options.trackingAnimationDurationMultiplier, trackingAnimationDurationMultiplier) != 0) {
+      return false;
+    }
+    if (trackingMultiFingerProtectedMoveArea != null
+      ? !trackingMultiFingerProtectedMoveArea.equals(options.trackingMultiFingerProtectedMoveArea) :
+      options.trackingMultiFingerProtectedMoveArea != null) {
       return false;
     }
     if (compassAnimationEnabled != options.compassAnimationEnabled) {
@@ -927,6 +954,8 @@ public class LocationComponentOptions implements Parcelable {
       ? Float.floatToIntBits(trackingInitialMoveThreshold) : 0);
     result = 31 * result + (trackingMultiFingerMoveThreshold != +0.0f
       ? Float.floatToIntBits(trackingMultiFingerMoveThreshold) : 0);
+    result = 31 * result + (trackingMultiFingerProtectedMoveArea != null
+      ? trackingMultiFingerProtectedMoveArea.hashCode() : 0);
     result = 31 * result + (layerAbove != null ? layerAbove.hashCode() : 0);
     result = 31 * result + (layerBelow != null ? layerBelow.hashCode() : 0);
     result = 31 * result + (trackingAnimationDurationMultiplier != +0.0f
@@ -936,45 +965,86 @@ public class LocationComponentOptions implements Parcelable {
     return result;
   }
 
+  @Override
+  public void writeToParcel(Parcel dest, int flags) {
+    dest.writeFloat(this.accuracyAlpha);
+    dest.writeInt(this.accuracyColor);
+    dest.writeInt(this.backgroundDrawableStale);
+    dest.writeString(this.backgroundStaleName);
+    dest.writeInt(this.foregroundDrawableStale);
+    dest.writeString(this.foregroundStaleName);
+    dest.writeInt(this.gpsDrawable);
+    dest.writeString(this.gpsName);
+    dest.writeInt(this.foregroundDrawable);
+    dest.writeString(this.foregroundName);
+    dest.writeInt(this.backgroundDrawable);
+    dest.writeString(this.backgroundName);
+    dest.writeInt(this.bearingDrawable);
+    dest.writeString(this.bearingName);
+    dest.writeValue(this.bearingTintColor);
+    dest.writeValue(this.foregroundTintColor);
+    dest.writeValue(this.backgroundTintColor);
+    dest.writeValue(this.foregroundStaleTintColor);
+    dest.writeValue(this.backgroundStaleTintColor);
+    dest.writeFloat(this.elevation);
+    dest.writeByte(this.enableStaleState ? (byte) 1 : (byte) 0);
+    dest.writeLong(this.staleStateTimeout);
+    dest.writeIntArray(this.padding);
+    dest.writeFloat(this.maxZoomIconScale);
+    dest.writeFloat(this.minZoomIconScale);
+    dest.writeByte(this.trackingGesturesManagement ? (byte) 1 : (byte) 0);
+    dest.writeFloat(this.trackingInitialMoveThreshold);
+    dest.writeFloat(this.trackingMultiFingerMoveThreshold);
+    dest.writeParcelable(this.trackingMultiFingerProtectedMoveArea, flags);
+    dest.writeString(this.layerAbove);
+    dest.writeString(this.layerBelow);
+    dest.writeFloat(this.trackingAnimationDurationMultiplier);
+    dest.writeByte(this.compassAnimationEnabled ? (byte) 1 : (byte) 0);
+    dest.writeByte(this.accuracyAnimationEnabled ? (byte) 1 : (byte) 0);
+  }
+
+  protected LocationComponentOptions(Parcel in) {
+    this.accuracyAlpha = in.readFloat();
+    this.accuracyColor = in.readInt();
+    this.backgroundDrawableStale = in.readInt();
+    this.backgroundStaleName = in.readString();
+    this.foregroundDrawableStale = in.readInt();
+    this.foregroundStaleName = in.readString();
+    this.gpsDrawable = in.readInt();
+    this.gpsName = in.readString();
+    this.foregroundDrawable = in.readInt();
+    this.foregroundName = in.readString();
+    this.backgroundDrawable = in.readInt();
+    this.backgroundName = in.readString();
+    this.bearingDrawable = in.readInt();
+    this.bearingName = in.readString();
+    this.bearingTintColor = (Integer) in.readValue(Integer.class.getClassLoader());
+    this.foregroundTintColor = (Integer) in.readValue(Integer.class.getClassLoader());
+    this.backgroundTintColor = (Integer) in.readValue(Integer.class.getClassLoader());
+    this.foregroundStaleTintColor = (Integer) in.readValue(Integer.class.getClassLoader());
+    this.backgroundStaleTintColor = (Integer) in.readValue(Integer.class.getClassLoader());
+    this.elevation = in.readFloat();
+    this.enableStaleState = in.readByte() != 0;
+    this.staleStateTimeout = in.readLong();
+    this.padding = in.createIntArray();
+    this.maxZoomIconScale = in.readFloat();
+    this.minZoomIconScale = in.readFloat();
+    this.trackingGesturesManagement = in.readByte() != 0;
+    this.trackingInitialMoveThreshold = in.readFloat();
+    this.trackingMultiFingerMoveThreshold = in.readFloat();
+    this.trackingMultiFingerProtectedMoveArea = in.readParcelable(RectF.class.getClassLoader());
+    this.layerAbove = in.readString();
+    this.layerBelow = in.readString();
+    this.trackingAnimationDurationMultiplier = in.readFloat();
+    this.compassAnimationEnabled = in.readByte() != 0;
+    this.accuracyAnimationEnabled = in.readByte() != 0;
+  }
+
   public static final Parcelable.Creator<LocationComponentOptions> CREATOR =
     new Parcelable.Creator<LocationComponentOptions>() {
       @Override
-      public LocationComponentOptions createFromParcel(Parcel in) {
-        return new LocationComponentOptions(
-          in.readFloat(),
-          in.readInt(),
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt(),
-          in.readInt() == 0 ? in.readString() : null,
-          in.readInt() == 0 ? in.readInt() : null,
-          in.readInt() == 0 ? in.readInt() : null,
-          in.readInt() == 0 ? in.readInt() : null,
-          in.readInt() == 0 ? in.readInt() : null,
-          in.readInt() == 0 ? in.readInt() : null,
-          in.readFloat(),
-          in.readInt() == 1,
-          in.readLong(),
-          in.createIntArray(),
-          in.readFloat(),
-          in.readFloat(),
-          in.readInt() == 1,
-          in.readFloat(),
-          in.readFloat(),
-          in.readString(),
-          in.readString(),
-          in.readFloat(),
-          in.readInt() == 1,
-          in.readInt() == 1
-        );
+      public LocationComponentOptions createFromParcel(Parcel source) {
+        return new LocationComponentOptions(source);
       }
 
       @Override
@@ -982,98 +1052,6 @@ public class LocationComponentOptions implements Parcelable {
         return new LocationComponentOptions[size];
       }
     };
-
-  @Override
-  public void writeToParcel(@NonNull Parcel dest, int flags) {
-    dest.writeFloat(accuracyAlpha());
-    dest.writeInt(accuracyColor());
-    dest.writeInt(backgroundDrawableStale());
-    if (backgroundStaleName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(backgroundStaleName());
-    }
-    dest.writeInt(foregroundDrawableStale());
-    if (foregroundStaleName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(foregroundStaleName());
-    }
-    dest.writeInt(gpsDrawable());
-    if (gpsName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(gpsName());
-    }
-    dest.writeInt(foregroundDrawable());
-    if (foregroundName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(foregroundName());
-    }
-    dest.writeInt(backgroundDrawable());
-    if (backgroundName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(backgroundName());
-    }
-    dest.writeInt(bearingDrawable());
-    if (bearingName() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeString(bearingName());
-    }
-    if (bearingTintColor() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeInt(bearingTintColor());
-    }
-    if (foregroundTintColor() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeInt(foregroundTintColor());
-    }
-    if (backgroundTintColor() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeInt(backgroundTintColor());
-    }
-    if (foregroundStaleTintColor() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeInt(foregroundStaleTintColor());
-    }
-    if (backgroundStaleTintColor() == null) {
-      dest.writeInt(1);
-    } else {
-      dest.writeInt(0);
-      dest.writeInt(backgroundStaleTintColor());
-    }
-    dest.writeFloat(elevation());
-    dest.writeInt(enableStaleState() ? 1 : 0);
-    dest.writeLong(staleStateTimeout());
-    dest.writeIntArray(padding());
-    dest.writeFloat(maxZoomIconScale());
-    dest.writeFloat(minZoomIconScale());
-    dest.writeInt(trackingGesturesManagement() ? 1 : 0);
-    dest.writeFloat(trackingInitialMoveThreshold());
-    dest.writeFloat(trackingMultiFingerMoveThreshold());
-    dest.writeString(layerAbove());
-    dest.writeString(layerBelow());
-    dest.writeFloat(trackingAnimationDurationMultiplier);
-    dest.writeInt(compassAnimationEnabled() ? 1 : 0);
-    dest.writeInt(accuracyAnimationEnabled() ? 1 : 0);
-  }
 
   @Override
   public int describeContents() {
@@ -1151,6 +1129,7 @@ public class LocationComponentOptions implements Parcelable {
     private Boolean trackingGesturesManagement;
     private Float trackingInitialMoveThreshold;
     private Float trackingMultiFingerMoveThreshold;
+    private RectF trackingMultiFingerProtectedMoveArea;
     private String layerAbove;
     private String layerBelow;
     private Float trackingAnimationDurationMultiplier;
@@ -1189,6 +1168,7 @@ public class LocationComponentOptions implements Parcelable {
       this.trackingGesturesManagement = source.trackingGesturesManagement();
       this.trackingInitialMoveThreshold = source.trackingInitialMoveThreshold();
       this.trackingMultiFingerMoveThreshold = source.trackingMultiFingerMoveThreshold();
+      this.trackingMultiFingerProtectedMoveArea = source.trackingMultiFingerProtectedMoveArea();
       this.layerAbove = source.layerAbove();
       this.layerBelow = source.layerBelow();
       this.trackingAnimationDurationMultiplier = source.trackingAnimationDurationMultiplier();
@@ -1588,6 +1568,7 @@ public class LocationComponentOptions implements Parcelable {
      *                                   false otherwise
      * @see Builder#trackingInitialMoveThreshold(float)
      * @see Builder#trackingMultiFingerMoveThreshold(float)
+     * @see Builder#trackingMultiFingerProtectedMoveArea(RectF)
      */
     @NonNull
     public LocationComponentOptions.Builder trackingGesturesManagement(boolean trackingGesturesManagement) {
@@ -1615,6 +1596,22 @@ public class LocationComponentOptions implements Parcelable {
     @NonNull
     public LocationComponentOptions.Builder trackingMultiFingerMoveThreshold(float moveThreshold) {
       this.trackingMultiFingerMoveThreshold = moveThreshold;
+      return this;
+    }
+
+    /**
+     * Sets protected multi pointer gesture area.
+     * When the camera is in a tracking mode,any multi finger gesture with focal
+     * point inside the provided screen coordinate rectangle is not going to break the tracking.
+     * <p>
+     * Best paired with the {@link LocationComponentOptions.Builder#trackingMultiFingerMoveThreshold(float)}
+     * set to 0 or a relatively small value to not interfere with gestures outside of the defined rectangle.
+     *
+     * @param rect the protected multi finger area while camera is tracking
+     */
+    @NonNull
+    public LocationComponentOptions.Builder trackingMultiFingerProtectedMoveArea(@Nullable RectF rect) {
+      this.trackingMultiFingerProtectedMoveArea = rect;
       return this;
     }
 
@@ -1768,6 +1765,7 @@ public class LocationComponentOptions implements Parcelable {
         trackingGesturesManagement,
         this.trackingInitialMoveThreshold,
         this.trackingMultiFingerMoveThreshold,
+        this.trackingMultiFingerProtectedMoveArea,
         this.layerAbove,
         this.layerBelow,
         this.trackingAnimationDurationMultiplier,
